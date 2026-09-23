@@ -41,7 +41,7 @@
     white-space: nowrap;
     pointer-events: none;
     opacity: 0;
-    color: #f1e7d6;
+    color: #f2dcae;
     font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
     font-weight: 400;
     text-shadow: 0 0 14px rgba(255, 206, 150, 0.22);
@@ -108,6 +108,8 @@ const CUE = {
   FACE:          [35, 40.5],
   NECK:          [40.5, 42],
   POSTURE:       [41.5, 43],
+  INNER_A:       [43, 46],
+  INNER_B:       [45, 47.5],
   GATHER:        [31, 46],
   BREATH_IN:     [42, 45],
   LIVING:        [43, 46],
@@ -120,6 +122,7 @@ const CUE = {
   LINES_OUT:     [55, 60],
   DETACH:        [56.5, 67],
   TRAILS:        [57, 62, 94, 100],
+  DOF:           [58, 66, 92, 99],
   GARDEN:        [68.5, 79],
   SKY_DIM:       [68, 72, 92, 97],
   NAME:          [79, 88.5],
@@ -179,9 +182,9 @@ function sceneAt(t) {
    ===================================================================== */
 
 const QUALITY = [
-  { name: 'HIGH',   bg: 16000, fig: 1.00, dprCap: 2.0, octaves: 5 },
-  { name: 'MEDIUM', bg: 11000, fig: 0.70, dprCap: 2.0, octaves: 4 },
-  { name: 'LOW',    bg:  7000, fig: 0.45, dprCap: 1.5, octaves: 3 },
+  { name: 'HIGH',   bg: 20000, fig: 1.00, dprCap: 2.0, octaves: 5 },
+  { name: 'MEDIUM', bg: 13000, fig: 0.70, dprCap: 2.0, octaves: 4 },
+  { name: 'LOW',    bg:  8000, fig: 0.45, dprCap: 1.5, octaves: 3 },
 ];
 const MAX_BG = QUALITY[0].bg;
 const MAX_FIG = 11000;
@@ -261,11 +264,11 @@ function rotationAxis(axis, ang) {
    Local units: roughly [-0.62, 0.62] wide, facing left in profile.
    ===================================================================== */
 
-const FIG_POS = [0.05, 0.05, 0];
+const FIG_POS = [0.2, 0.05, 0];
 const FIG_SCALE = 1.25;
 
-// closed outline, bottom-left → up the front → face → crown → hair → bottom-right
-const OUTLINE = [
+// closed outline, authored facing left, then mirrored so she faces right
+const OUTLINE_RAW = [
   [-0.62, -0.72], [-0.60, -0.52], [-0.55, -0.38], [-0.46, -0.28], [-0.32, -0.22], [-0.20, -0.18],
   [-0.13, -0.12], [-0.11, -0.02], [-0.12, 0.06], [-0.155, 0.10], [-0.20, 0.115], [-0.225, 0.15],
   [-0.222, 0.19], [-0.236, 0.212], [-0.226, 0.235], [-0.242, 0.258], [-0.240, 0.282], [-0.292, 0.318],
@@ -274,6 +277,11 @@ const OUTLINE = [
   [0.31, 0.24], [0.34, 0.10], [0.38, -0.02], [0.44, -0.14], [0.50, -0.26], [0.55, -0.40],
   [0.58, -0.56], [0.60, -0.72],
 ];
+const mirror = p => p.length > 2 ? [-p[0], p[1], p[2]] : [-p[0], p[1]];
+const OUTLINE = OUTLINE_RAW.map(mirror);
+// interior stars: front shoulder, heart, sternum, back, waist
+const INNER = [[-0.42, -0.34], [-0.26, -0.40], [-0.04, -0.30], [0.32, -0.36], [-0.12, -0.56], [0.22, -0.62]].map(mirror);
+const VERTS = OUTLINE.concat(INNER);
 
 // order in which the sky "draws" her: shoulder, hair, face, posture
 const REVEAL_SEQUENCES = [
@@ -284,22 +292,28 @@ const REVEAL_SEQUENCES = [
   { verts: [9, 8, 7, 6], span: CUE.NECK },
   { verts: [1, 0], span: CUE.POSTURE },
   { verts: [36, 37], span: CUE.POSTURE },
+  { verts: [3, 38, 39, 40, 41, 35], span: CUE.INNER_A },
+  { verts: [39, 42, 43], span: CUE.INNER_B },
+  { verts: [40, 42], span: CUE.INNER_B },
 ];
 
-const HEART_LOCAL = [-0.26, -0.40, 0.06];
-const EYE_LOCAL = [-0.195, 0.402, 0.03];
+const HEART_LOCAL = mirror([-0.26, -0.40, 0.06]);
+const EYE_LOCAL = mirror([-0.195, 0.402, 0.03]);
 const HEART_WORLD = v3.add(FIG_POS, v3.scale(HEART_LOCAL, FIG_SCALE));
 
 // hair streams as cubic Béziers (shared with the shader)
 const HAIR_STRANDS = [
-  [[-0.06, 0.63, 0.02], [0.20, 0.66, 0.03], [0.33, 0.40, 0.0], [0.36, 0.05, -0.02]],
-  [[0.02, 0.64, -0.02], [0.26, 0.62, 0.0], [0.36, 0.30, 0.02], [0.42, -0.10, 0.0]],
-  [[0.10, 0.62, 0.03], [0.30, 0.55, 0.05], [0.40, 0.20, 0.0], [0.48, -0.25, 0.02]],
-  [[0.17, 0.59, 0.0], [0.32, 0.45, 0.02], [0.44, 0.10, 0.04], [0.54, -0.42, 0.0]],
-  [[0.22, 0.54, -0.03], [0.33, 0.36, 0.0], [0.46, 0.00, -0.02], [0.58, -0.58, 0.0]],
-  [[0.26, 0.46, 0.02], [0.34, 0.26, 0.04], [0.40, 0.00, 0.0], [0.50, -0.52, -0.03]],
-  [[-0.12, 0.60, 0.0], [0.05, 0.70, 0.0], [0.28, 0.60, 0.0], [0.30, 0.35, 0.0]],
-];
+  [[-0.05, 0.64, 0.02], [0.30, 0.70, 0.03], [0.45, 0.35, 0.0], [0.62, 0.05, -0.02]],
+  [[0.05, 0.65, -0.02], [0.35, 0.60, 0.0], [0.40, 0.20, 0.02], [0.70, -0.10, 0.0]],
+  [[0.12, 0.62, 0.03], [0.40, 0.52, 0.05], [0.48, 0.10, 0.0], [0.78, -0.25, 0.02]],
+  [[0.18, 0.59, 0.0], [0.36, 0.40, 0.02], [0.58, 0.05, 0.04], [0.66, -0.45, 0.0]],
+  [[0.23, 0.54, -0.03], [0.34, 0.30, 0.0], [0.60, -0.05, -0.02], [0.84, -0.35, 0.0]],
+  [[0.26, 0.47, 0.02], [0.36, 0.20, 0.04], [0.46, -0.10, 0.0], [0.58, -0.62, -0.03]],
+  [[0.28, 0.40, 0.0], [0.32, 0.12, 0.02], [0.52, -0.20, 0.0], [0.74, -0.58, 0.02]],
+  [[-0.12, 0.60, 0.0], [0.05, 0.72, 0.0], [0.30, 0.62, 0.0], [0.34, 0.32, 0.0]],
+  [[0.20, 0.56, 0.02], [0.55, 0.55, 0.0], [0.60, 0.25, -0.02], [0.90, 0.05, 0.0]],
+  [[0.30, 0.30, -0.02], [0.40, 0.00, 0.0], [0.35, -0.30, 0.02], [0.52, -0.72, 0.0]],
+].map(strand => strand.map(mirror));
 
 function pointInPolygon(x, y, poly) {
   let inside = false;
@@ -322,19 +336,19 @@ function distToOutline(x, y) {
 
 // reveal time for each outline vertex, and the constellation line segments
 function buildRevealPlan() {
-  const vertexTime = new Array(OUTLINE.length).fill(Infinity);
+  const vertexTime = new Array(VERTS.length).fill(Infinity);
   const lines = [];
   for (const seq of REVEAL_SEQUENCES) {
     const cum = [0];
     for (let i = 1; i < seq.verts.length; i++) {
-      const a = OUTLINE[seq.verts[i - 1]], b = OUTLINE[seq.verts[i]];
+      const a = VERTS[seq.verts[i - 1]], b = VERTS[seq.verts[i]];
       cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1]));
     }
     const total = cum[cum.length - 1];
     const times = cum.map(c => lerp(seq.span[0], seq.span[1], c / total));
     seq.verts.forEach((v, i) => { vertexTime[v] = Math.min(vertexTime[v], times[i]); });
     for (let i = 0; i < seq.verts.length - 1; i++) {
-      lines.push({ a: OUTLINE[seq.verts[i]], b: OUTLINE[seq.verts[i + 1]], start: times[i] + 0.4, dur: times[i + 1] - times[i] });
+      lines.push({ a: VERTS[seq.verts[i]], b: VERTS[seq.verts[i + 1]], start: times[i] + 0.4, dur: times[i + 1] - times[i] });
     }
   }
   return { vertexTime, lines };
@@ -344,52 +358,77 @@ function buildRevealPlan() {
    PROCEDURAL GEOMETRY — her name, as stroke glyphs (no fonts)
    ===================================================================== */
 
-function arc(cx, cy, r, a0, a1, n) {
-  const pts = [];
-  for (let i = 0; i <= n; i++) { const a = lerp(a0, a1, i / n); pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
-  return pts;
-}
-function ellipse(cx, cy, rx, ry, n) {
-  const pts = [];
-  for (let i = 0; i <= n; i++) { const a = Math.PI / 2 + i / n * Math.PI * 2; pts.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); }
-  return pts;
-}
-const GLYPHS = {
-  M: { w: 0.86, strokes: [[[0, 0], [0, 1], [0.43, 0.34], [0.86, 1], [0.86, 0]]] },
-  A: { w: 0.78, strokes: [[[0, 0], [0.39, 1], [0.78, 0]], [[0.17, 0.38], [0.61, 0.38]]] },
-  N: { w: 0.72, strokes: [[[0, 0], [0, 1], [0.72, 0], [0.72, 1]]] },
-  O: { w: 0.84, strokes: [ellipse(0.42, 0.5, 0.42, 0.5, 56)] },
-  R: { w: 0.72, strokes: [[[0, 0], [0, 1], [0.40, 1], ...arc(0.40, 0.75, 0.25, Math.PI / 2, -Math.PI / 2, 20).slice(1), [0, 0.5]], [[0.32, 0.5], [0.72, 0]]] },
-  J: { w: 0.62, strokes: [[[0.62, 1], [0.62, 0.31], ...arc(0.31, 0.31, 0.31, 0, -Math.PI * 0.92, 22).slice(1)]] },
-  I: { w: 0.0, strokes: [[[0, 0], [0, 1]]] },
+// joined script letters: control points in x-height units (baseline 0, x-height 0.5, cap 1)
+const SCRIPT = {
+  M: { w: 0.84, pts: [[0, 0.02], [0.06, 0.45], [0.14, 0.88], [0.2, 0.98], [0.26, 0.8], [0.32, 0.45], [0.36, 0.22], [0.42, 0.55], [0.5, 0.92], [0.56, 0.98], [0.61, 0.75], [0.64, 0.35], [0.68, 0.06], [0.76, 0.02], [0.84, 0.08]], dots: [] },
+  a: { w: 0.46, pts: [[0.12, 0.36], [0.24, 0.5], [0.34, 0.46], [0.2, 0.49], [0.06, 0.38], [0.05, 0.15], [0.14, 0.02], [0.26, 0.08], [0.32, 0.3], [0.34, 0.48], [0.33, 0.2], [0.37, 0.03], [0.46, 0.07]], dots: [] },
+  n: { w: 0.48, pts: [[0.07, 0.44], [0.08, 0.2], [0.08, 0.01], [0.11, 0.3], [0.2, 0.48], [0.3, 0.46], [0.34, 0.26], [0.35, 0.06], [0.4, 0.02], [0.48, 0.07]], dots: [] },
+  o: { w: 0.46, pts: [[0.12, 0.36], [0.24, 0.5], [0.3, 0.46], [0.16, 0.46], [0.04, 0.22], [0.12, 0.02], [0.27, 0.04], [0.34, 0.24], [0.3, 0.42], [0.36, 0.44], [0.46, 0.42]], dots: [] },
+  r: { w: 0.36, pts: [[0.05, 0.45], [0.06, 0.2], [0.06, 0.01], [0.08, 0.26], [0.16, 0.43], [0.27, 0.48], [0.36, 0.42]], dots: [] },
+  j: { w: 0.38, pts: [[0.2, 0.47], [0.21, 0.2], [0.2, -0.2], [0.14, -0.42], [0.04, -0.42], [0.04, -0.3], [0.16, -0.12], [0.3, 0.02], [0.38, 0.07]], dots: [[0.21, 0.68]] },
+  i: { w: 0.24, pts: [[0.1, 0.47], [0.1, 0.2], [0.12, 0.03], [0.24, 0.07]], dots: [[0.1, 0.68]] },
 };
-const NAME = 'MANORANJINI';
+const NAME = 'Manoranjini';
 const NAME_WIDTH = 2.4;
-const NAME_GAP = 0.25;
 const NAME_POS = [0, 0.02, 0];
 
-function buildNameGeometry() {
-  let units = NAME_GAP * (NAME.length - 1);
-  for (const ch of NAME) units += GLYPHS[ch].w;
-  const s = NAME_WIDTH / units;
-  const segs = [];  // {ax, ay, bx, by, len, letter}
-  let cursor = 0, total = 0;
-  const letterCenters = [];
-  for (let li = 0; li < NAME.length; li++) {
-    const g = GLYPHS[NAME[li]];
-    const ox = -NAME_WIDTH / 2 + cursor * s, oy = -s / 2;
-    letterCenters.push(ox + g.w * s / 2);
-    for (const stroke of g.strokes) {
-      for (let i = 0; i < stroke.length - 1; i++) {
-        const ax = ox + stroke[i][0] * s, ay = oy + stroke[i][1] * s;
-        const bx = ox + stroke[i + 1][0] * s, by = oy + stroke[i + 1][1] * s;
-        const len = Math.hypot(bx - ax, by - ay);
-        if (len < 1e-6) continue;
-        segs.push({ ax, ay, bx, by, len, letter: li, cum: total });
-        total += len;
-      }
+function catmullRom(pts, steps) {
+  const out = [], P = [pts[0], ...pts, pts[pts.length - 1]];
+  for (let i = 1; i < P.length - 2; i++) {
+    const p0 = P[i - 1], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2];
+    for (let k = 0; k < steps; k++) {
+      const t = k / steps, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map(j => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)));
     }
-    cursor += g.w + NAME_GAP;
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+
+function buildNameGeometry() {
+  let units = 0;
+  for (const ch of NAME) units += SCRIPT[ch].w;
+  const s = NAME_WIDTH / units;
+  // gentle rising baseline, like handwriting
+  const place = (x, y) => {
+    const wx = -NAME_WIDTH / 2 + x * s, wy = (y - 0.29) * s;
+    return [wx, wy + 0.05 * Math.sin(wx * 1.2) + wx * 0.035];
+  };
+  const strokes = [];
+  const letterCenters = [];
+  const control = [], owner = [];
+  let cursor = 0;
+  for (let li = 0; li < NAME.length; li++) {
+    const g = SCRIPT[NAME[li]];
+    letterCenters.push(place(cursor + g.w / 2, 0)[0]);
+    for (const q of g.pts) { control.push([cursor + q[0], q[1]]); owner.push(li); }
+    for (const d of g.dots) {
+      const dot = [];
+      for (let k = 0; k <= 10; k++) { const a = k / 10 * Math.PI * 2; dot.push(place(cursor + d[0] + Math.cos(a) * 0.035, d[1] + Math.sin(a) * 0.035)); }
+      strokes.push({ pts: dot, letter: li });
+    }
+    cursor += g.w;
+  }
+  // one continuous pen stroke; each stretch belongs to the letter that owns its control point
+  const STEPS = 10;
+  let run = null;
+  catmullRom(control, STEPS).forEach((c, i) => {
+    const li = owner[Math.min(owner.length - 1, Math.floor(i / STEPS))];
+    const pt = place(c[0], c[1]);
+    if (!run || run.letter !== li) { if (run) run.pts.push(pt); run = { pts: [], letter: li }; strokes.push(run); }
+    run.pts.push(pt);
+  });
+
+  const segs = [];
+  let total = 0;
+  for (const st of strokes) {
+    for (let i = 0; i < st.pts.length - 1; i++) {
+      const [ax, ay] = st.pts[i], [bx, by] = st.pts[i + 1];
+      const len = Math.hypot(bx - ax, by - ay);
+      if (len < 1e-6) continue;
+      segs.push({ ax, ay, bx, by, len, letter: st.letter, cum: total });
+      total += len;
+    }
   }
   function sample(u) {
     const d = clamp01(u) * total;
@@ -399,7 +438,7 @@ function buildNameGeometry() {
     const tx = (sg.bx - sg.ax) / sg.len, ty = (sg.by - sg.ay) / sg.len;
     return { x: sg.ax + (sg.bx - sg.ax) * k, y: sg.ay + (sg.by - sg.ay) * k, tx, ty, letter: sg.letter };
   }
-  return { total, height: s, sample, letterCenters };
+  return { total, height: s * 0.85, sample, letterCenters };
 }
 
 /* =====================================================================
@@ -414,16 +453,16 @@ function buildNameGeometry() {
 
 const FIG_STRIDE = 20;
 const TYPE = { KEY: 0, OUTLINE: 1, HAIR: 2, FILL: 3, ORBIT: 4, EYE: 5 };
-const COUNTS = { OUTLINE: 900, HAIR: 2000, ORBIT: 1400 };
-const FLOWER_FRACTION = 0.13;
-const LETTER_FLOWER_SPACING = 0.03;
+const COUNTS = { OUTLINE: 900, HAIR: 3000, ORBIT: 1100 };
+const FLOWER_FRACTION = 0.05;
+const LETTER_FLOWER_SPACING = 0.05;
 
 function buildFigure(rng, plan) {
   const data = new Float32Array(MAX_FIG * FIG_STRIDE);
   const recs = [];
 
   // anchors: constellation vertices + eye
-  OUTLINE.forEach((p, i) => recs.push({ type: TYPE.KEY, sil: [p[0], p[1], 0], w: plan.vertexTime[i] }));
+  VERTS.forEach((p, i) => recs.push({ type: TYPE.KEY, sil: [p[0], p[1], 0], w: plan.vertexTime[i] }));
   recs.push({ type: TYPE.EYE, sil: EYE_LOCAL.slice(), w: CUE.FACE[0] + 2.2 });
 
   // outline stars, stratified along edges
@@ -453,7 +492,7 @@ function buildFigure(rng, plan) {
   for (const type of rest) {
     if (type === TYPE.HAIR) {
       const k = Math.floor(rng() * HAIR_STRANDS.length);
-      recs.push({ type, sil: [k, rng(), gauss(rng) * 0.022], w: 0.25 + 0.3 * rng() });
+      recs.push({ type, sil: [k, rng(), gauss(rng) * 0.009], w: 0.25 + 0.3 * rng() });
     } else if (type === TYPE.ORBIT) {
       recs.push({ type, sil: [0.58 + 0.4 * rng(), (rng() * 2 - 1) * 0.62, 0], w: 0.7 + 0.3 * rng() });
     } else {
@@ -469,8 +508,8 @@ function buildFigure(rng, plan) {
       const depth = y < -0.1 ? 0.16 : 0.1;
       let stag;
       if (y < -0.15) stag = 0.3 * rng();
-      else if (x > 0.12) stag = 0.25 + 0.3 * rng();
-      else if (x < -0.08 && y > 0.05) stag = 0.5 + 0.3 * rng();
+      else if (x < -0.12) stag = 0.25 + 0.3 * rng();
+      else if (x > 0.08 && y > 0.05) stag = 0.5 + 0.3 * rng();
       else stag = 0.6 + 0.35 * rng();
       recs.push({ type, sil: [x, y, (rng() * 2 - 1) * depth], w: stag });
     }
@@ -482,7 +521,7 @@ function writeFigure(rng, recs, data) {
   const name = buildNameGeometry();
   const letterFlowers = Math.round(name.total / LETTER_FLOWER_SPACING);
   let flowerIndex = 0;
-  const PETALS = [5, 5, 6, 6, 7, 8, 10, 12];
+  const PETALS = [5, 5, 5, 6, 6, 6, 8];
   recs.forEach((r, i) => {
     const o = i * FIG_STRIDE;
     data[o] = r.sil[0]; data[o + 1] = r.sil[1]; data[o + 2] = r.sil[2]; data[o + 3] = r.type;
@@ -531,7 +570,7 @@ function writeFigure(rng, recs, data) {
     data[o + 16] = flag;
     data[o + 17] = PETALS[Math.floor(rng() * PETALS.length)];
     data[o + 18] = rng();
-    data[o + 19] = 0.028 + 0.03 * rng();
+    data[o + 19] = 0.04 + 0.05 * rng();
   });
   return data;
 }
@@ -545,11 +584,11 @@ const BG_STRIDE = 12;
 const DUST_FRACTION = 0.02;
 const SKY_AXIS = v3.norm([0.35, 0.85, 0.4]);
 const STAR_COLORS = [
-  [0.55, [0.76, 0.84, 1.00]],
-  [0.20, [0.70, 0.66, 1.00]],
-  [0.15, [1.00, 0.98, 0.96]],
-  [0.07, [1.00, 0.86, 0.62]],
-  [0.03, [1.00, 0.72, 0.48]],
+  [0.40, [0.52, 0.68, 1.00]],
+  [0.20, [0.72, 0.60, 1.00]],
+  [0.20, [1.00, 0.97, 0.94]],
+  [0.12, [1.00, 0.78, 0.45]],
+  [0.08, [1.00, 0.60, 0.34]],
 ];
 const DECOYS = [
   { at: 14, offset: [0.28, 0.20], shape: [[0, 0], [0.05, 0.03], [0.1, 0.0], [0.15, 0.04], [0.19, 0.0]], edges: [[0, 1], [1, 2], [2, 3], [3, 4]], life: [13, 2.8, 23] },
@@ -623,7 +662,7 @@ function buildSky(rng, camera) {
       const r = layer < 0.44 ? 15 + rng() * 25 : 40 + rng() * 50;
       p = v3.scale(d, r);
     }
-    const bright = (0.12 + 2.0 * Math.pow(rng(), 7)) * (layer < 0.14 ? 1.1 : layer < 0.44 ? 1.0 : 0.9);
+    const bright = (0.12 + 2.4 * Math.pow(rng(), 6)) * (layer < 0.14 ? 1.1 : layer < 0.44 ? 1.0 : 0.9);
     const core = 0.5 + 0.9 * Math.sqrt(bright);
     const reveal = lerp(CUE.SKY_REVEAL[0], CUE.SKY_REVEAL[1], clamp01(0.65 * rng() + 0.35 * (1 - Math.min(bright, 1.2) / 1.2)));
     const col = pickColor(rng).map(c => clamp01(c + (rng() - 0.5) * 0.06));
@@ -646,8 +685,8 @@ const CAMERA_KEYS = [
   [51,    [0.14, 0.03, 2.85],  [0.02, -0.02, 0.0]],
   [57,    [0.75, 0.12, 2.5],  [0.0, 0.0, 0.0]],
   [63,    [-0.45, 0.3, 2.9],  [0.0, 0.1, 0.0]],
-  [70,    [0.0, 0.35, 3.05],  [0.0, -0.05, 0.0]],
-  [79,    [0.05, 0.12, 3.0],  [0.0, -0.02, 0.0]],
+  [70,    [0.15, 0.35, 3.05], [0.15, -0.05, 0.0]],
+  [79,    [0.1, 0.12, 3.0],   [0.05, -0.02, 0.0]],
   [88.5,  [0.0, 0.02, 3.2],   [0.0, 0.02, 0.0]],
   [94,    [0.0, 0.02, 3.2],   [0.0, 0.02, 0.0]],
   [98.5,  [0.05, 0.22, 3.0],  [0.0, 0.35, -0.4]],
@@ -821,15 +860,21 @@ void main() {
   vec3 d = normalize(u_fwd + ndc.x * u_tan.x * u_right + ndc.y * u_tan.y * u_up);
   d = u_skyRotInv * d;
   vec3 axis = normalize(vec3(0.35, 0.85, 0.4));
-  float band = exp(-pow(dot(d, axis) / 0.3, 2.0));
-  float n1 = fbm(d * 2.4 + vec3(0.0, 0.0, u_time * 0.004));
-  float n2 = fbm(d * 5.5 + vec3(7.1, 2.3, 0.0));
-  float clouds = smoothstep(0.38, 0.95, n1);
-  float lanes = smoothstep(0.42, 0.72, n2);
-  vec3 col = vec3(0.075, 0.05, 0.17) * clouds
-           + vec3(0.04, 0.065, 0.17) * n2 * band
-           + vec3(0.14, 0.09, 0.24) * band * clouds * (1.0 - 0.75 * lanes)
-           + vec3(0.10, 0.06, 0.03) * pow(band, 5.0) * n1 * (1.0 - lanes);
+  float band = exp(-pow(dot(d, axis) / 0.34, 2.0));
+  float n1 = fbm(d * 2.2 + vec3(0.0, 0.0, u_time * 0.004));
+  float n2 = fbm(d * 5.0 + vec3(7.1, 2.3, 0.0));
+  float n3 = fbm(d * 3.3 + vec3(3.3, 1.1, 8.2));
+  float ridge = pow(1.0 - abs(2.0 * fbm(d * 4.2 + vec3(2.0, 5.0, 1.0)) - 1.0), 3.0);
+  float clouds = pow(smoothstep(0.36, 0.86, n1), 1.25);
+  float lanes = smoothstep(0.45, 0.7, n2);
+  vec3 blue = vec3(0.10, 0.22, 0.62), violet = vec3(0.36, 0.16, 0.56), ember = vec3(0.75, 0.34, 0.10);
+  vec3 col = blue * clouds * (0.08 + band) * 0.6
+           + violet * smoothstep(0.4, 0.9, n3) * band * 0.55
+           + blue * ridge * band * clouds * 0.9
+           + ember * pow(smoothstep(0.5, 0.85, n3 * n1 * 1.7), 2.0) * band * 0.7;
+  col *= 1.0 - 0.75 * lanes * band;
+  col += vec3(0.008, 0.01, 0.025) * n2;
+  col *= 2.0;
   o = vec4(col * u_amount, 1.0);
 }`;
 
@@ -846,6 +891,7 @@ uniform mat3 u_skyRot;
 out vec2 v_uv;
 out vec3 v_col;
 out float v_soft;
+out float v_spike;
 void main() {
   vec3 p = u_skyRot * a_pos.xyz;
   vec4 c = u_vp * vec4(p, 1.0);
@@ -854,6 +900,7 @@ void main() {
   float b = a_prop.y * vis;
   float core;
   v_soft = 0.0;
+  v_spike = kind > 0.5 && kind < 1.5 ? 0.0 : smoothstep(1.5, 2.4, a_prop.y);
   if (kind > 0.5 && kind < 1.5) {
     v_soft = 1.0;
     b *= u_dust;
@@ -864,9 +911,9 @@ void main() {
     core = a_prop.x * u_pxScale * clamp(7.0 / max(c.w, 0.01), 0.85, 1.5);
   }
   b *= u_bright;
-  if (c.w < 0.05 || b < 0.002) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); v_uv = vec2(0.0); v_col = vec3(0.0); return; }
+  if (c.w < 0.05 || b < 0.002) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); v_uv = vec2(0.0); v_col = vec3(0.0); v_spike = 0.0; return; }
   if (v_soft < 0.5 && core < u_minCore) { b *= (core / u_minCore) * (core / u_minCore); core = u_minCore; }
-  float quad = v_soft > 0.5 ? core : core * 5.0;
+  float quad = v_soft > 0.5 ? core : core * 5.0 * (1.0 + 2.2 * v_spike);
   c.xy += a_corner * quad * 2.0 / u_res * c.w;
   gl_Position = c;
   v_uv = a_corner;
@@ -878,11 +925,20 @@ precision highp float;
 in vec2 v_uv;
 in vec3 v_col;
 in float v_soft;
+in float v_spike;
 out vec4 o;
 void main() {
   float r2 = dot(v_uv, v_uv);
   if (r2 > 1.0) discard;
-  float s = v_soft > 0.5 ? exp(-r2 * 3.5) * (1.0 - r2) : exp(-r2 * 25.0) + 0.14 * exp(-r2 * 6.0);
+  float s;
+  if (v_soft > 0.5) s = exp(-r2 * 3.5) * (1.0 - r2);
+  else {
+    vec2 q = v_uv * (1.0 + 2.2 * v_spike);
+    float q2 = dot(q, q);
+    s = exp(-q2 * 25.0) + 0.14 * exp(-q2 * 6.0);
+    vec2 a = abs(v_uv);
+    s += v_spike * 0.55 * (exp(-a.y * 60.0) * exp(-a.x * 3.5) + exp(-a.x * 60.0) * exp(-a.y * 3.5)) * (1.0 - r2);
+  }
   o = vec4(v_col * s, 1.0);
 }`;
 
@@ -931,7 +987,7 @@ void main() {
   a *= 1.0 - smoothstep(v_prog - 0.04, v_prog, v_along);
   a *= smoothstep(v_gap * 0.6, v_gap, v_along) * (1.0 - smoothstep(1.0 - v_gap, 1.0 - v_gap * 0.6, v_along));
   a *= 0.72 + 0.28 * sin(u_time * 1.7 + v_along * 9.0 + v_seed * 40.0);
-  o = vec4(vec3(0.95, 0.86, 0.68) * a * 0.42, 1.0);
+  o = vec4(vec3(1.0, 0.76, 0.42) * a * 0.62, 1.0);
 }`;
 
 const FIGURE_VS = `#version 300 es
@@ -946,7 +1002,7 @@ ${FIGURE_COMMON}
 uniform mat4 u_vp;
 uniform vec2 u_res;
 uniform float u_projY, u_minCore;
-uniform vec3 u_hair[28];
+uniform vec3 u_hair[40];
 uniform float u_hairPhase;
 uniform vec3 u_namePos;
 uniform float u_skyVis;
@@ -954,9 +1010,10 @@ uniform float u_gSil, u_gFly, u_gGarden, u_gName, u_gRise, u_gSil2, u_gVanish;
 uniform float u_living, u_heartI;
 uniform vec3 u_heartPos, u_heartLocal;
 uniform float u_trail;
+uniform float u_focus, u_dof;
 out vec2 v_uv;
 out vec3 v_col;
-out float v_flower, v_bloom, v_glow, v_petals, v_rot;
+out float v_flower, v_bloom, v_glow, v_petals, v_rot, v_spike, v_wing, v_flap, v_soft;
 
 const float PI = 3.14159265;
 float ease(float x) { return x * x * (3.0 - 2.0 * x); }
@@ -1010,7 +1067,7 @@ vec3 flyPos(float T) {
   vec3 c = u_figPos + vec3(cos(0.36 * Tl * spin + ph) * R, 0.25 + 0.38 * sin(0.27 * Tl + k * 2.1), sin(0.36 * Tl * spin + ph) * R * 0.6);
   float dir = a_seed.z > 0.5 ? 1.0 : -1.0;
   float a = a_seed.y * 6.2831 + T * (1.1 + 0.9 * a_seed.x) * dir;
-  float r = 0.02 + 0.09 * a_seed.z * a_seed.z;
+  float r = 0.04 + 0.26 * a_seed.x * a_seed.x;
   vec3 o = vec3(cos(a) * r, sin(a * 0.7 + a_seed.x * 20.0) * r, sin(a) * r * 0.8);
   o += 0.035 * vec3(sin(T * 0.83 + a_seed.x * 41.0), sin(T * 1.07 + a_seed.y * 37.0), sin(T * 0.71 + a_seed.z * 29.0));
   return c + o;
@@ -1019,7 +1076,7 @@ vec3 flyPos(float T) {
 vec3 gardenPos(float T) {
   float gx = fract(a_seed.y * 7.31 + a_seed.z * 3.77), gy = fract(a_seed.x * 5.13 + a_seed.w * 2.91), gz = fract(a_seed.z * 4.37 + a_seed.x * 1.93);
   float th = gx * 6.2831853, cp = gy * 2.0 - 1.0, sp = sqrt(1.0 - cp * cp), rr = pow(gz, 0.55);
-  vec3 b = vec3(cos(th) * sp * 1.5, cp * 0.78 - 0.1, sin(th) * sp * 0.9) * rr;
+  vec3 b = vec3(cos(th) * sp * 1.75, cp * 0.95 - 0.1, sin(th) * sp * 1.1) * rr;
   b += 0.045 * vec3(sin(T * 0.19 + a_seed.x * 30.0), sin(T * 0.16 + a_seed.w * 26.0), sin(T * 0.13 + a_seed.y * 22.0));
   return u_figPos + b;
 }
@@ -1045,7 +1102,7 @@ vec3 skyPos(float T) {
 }
 
 vec3 flowerColor(float h) {
-  vec3 c0 = vec3(0.78, 0.60, 1.00), c1 = vec3(1.00, 0.66, 0.62), c2 = vec3(0.55, 0.88, 1.00), c3 = vec3(1.00, 0.90, 0.70);
+  vec3 c0 = vec3(0.74, 0.46, 1.00), c1 = vec3(1.00, 0.44, 0.72), c2 = vec3(0.40, 0.56, 1.00), c3 = vec3(1.00, 0.74, 0.34);
   float x = h * 4.0;
   if (x < 1.0) return mix(c0, c1, smoothstep(0.6, 1.0, x));
   if (x < 2.0) return mix(c1, c2, smoothstep(1.6, 2.0, x));
@@ -1056,7 +1113,7 @@ vec3 flowerColor(float h) {
 void main() {
   float T = u_time;
   float type = a_sil.w;
-  v_uv = a_corner; v_col = vec3(0.0); v_flower = 0.0; v_bloom = 0.0; v_glow = 0.0; v_petals = a_flower.y; v_rot = 0.0;
+  v_uv = a_corner; v_col = vec3(0.0); v_flower = 0.0; v_bloom = 0.0; v_glow = 0.0; v_petals = a_flower.y; v_rot = 0.0; v_spike = 0.0; v_wing = 0.0; v_flap = 1.0; v_soft = 0.0;
   if (u_trail > 0.0 && a_seed.w > 0.2) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   bool anchored = type < 1.5 || type > 4.5;
 
@@ -1065,30 +1122,33 @@ void main() {
   vec3 pSil = figureWorld(sl);
 
   // how each particle looks while it is part of her
-  float sBr, sSz; vec3 sCol;
+  float sBr, sSz, sSpike = 0.0; vec3 sCol;
+  vec3 gold = vec3(1.0, 0.74, 0.40), ice = vec3(0.45, 0.62, 1.0);
   if (type < 0.5) {
     float on = smoothstep(a_field.w - 1.2, a_field.w + 0.8, T);
-    sBr = mix(0.3 * u_skyVis, 1.5 + 0.5 * a_seed.z, on); sSz = mix(0.012, 0.024 + 0.008 * a_seed.y, on); sCol = vec3(1.0, 0.91, 0.76);
+    sBr = mix(0.3 * u_skyVis, 1.8 + 0.7 * a_seed.z, on); sSz = mix(0.012, 0.026 + 0.01 * a_seed.y, on);
+    sCol = a_seed.x < 0.5 ? vec3(1.0, 0.8, 0.5) : (a_seed.x < 0.8 ? vec3(0.66, 0.78, 1.0) : vec3(0.82, 0.62, 1.0));
+    sSpike = on * (0.5 + 0.5 * a_seed.y);
   } else if (type < 1.5) {
     float on = smoothstep(a_field.w, a_field.w + 2.5, T);
-    sBr = mix(u_skyVis * 0.18 * step(0.75, a_seed.y), 0.55 + 0.3 * a_seed.z, on); sSz = 0.012 + 0.005 * a_seed.x;
-    sCol = mix(vec3(0.98, 0.9, 0.78), vec3(0.74, 0.8, 1.0), a_seed.x);
+    sBr = mix(u_skyVis * 0.18 * step(0.75, a_seed.y), 0.85 + 0.45 * a_seed.z, on); sSz = 0.012 + 0.005 * a_seed.x;
+    sCol = mix(ice, gold, smoothstep(-0.25, 0.1, a_sil.x));
   } else if (type < 2.5) {
-    sBr = 0.55 * hairFade; sSz = 0.010 + 0.004 * a_seed.x; sCol = mix(vec3(0.66, 0.7, 1.0), vec3(0.9, 0.85, 1.0), a_seed.y);
+    sBr = 1.05 * hairFade; sSz = 0.010 + 0.004 * a_seed.x; sCol = a_seed.y > 0.55 ? gold : mix(ice, vec3(0.75, 0.7, 1.0), a_seed.x);
   } else if (type < 3.5) {
-    sBr = 0.13 + 0.12 * a_seed.y; sSz = 0.009 + 0.004 * a_seed.x; sCol = mix(vec3(0.48, 0.52, 1.0), vec3(0.78, 0.66, 1.0), a_seed.z);
+    sBr = 0.17 + 0.14 * a_seed.y; sSz = 0.009 + 0.004 * a_seed.x; sCol = mix(vec3(0.30, 0.45, 1.0), vec3(0.62, 0.5, 1.0), a_seed.z);
   } else if (type < 4.5) {
-    sBr = 0.2 + 0.2 * a_seed.y; sSz = 0.008 + 0.004 * a_seed.x; sCol = vec3(0.66, 0.6, 1.0);
+    sBr = 0.22 + 0.22 * a_seed.y; sSz = 0.008 + 0.004 * a_seed.x; sCol = vec3(0.55, 0.55, 1.0);
   } else {
     float on = smoothstep(a_field.w, a_field.w + 2.0, T);
-    sBr = 1.2 * on + 0.2 * u_skyVis; sSz = 0.018; sCol = vec3(0.88, 0.92, 1.0);
+    sBr = 1.3 * on + 0.2 * u_skyVis; sSz = 0.02; sCol = vec3(0.8, 0.88, 1.0); sSpike = 0.5 * on;
   }
   sBr *= 1.0 + u_living * 0.3 * sin(T * 1.6 + a_seed.x * 31.0);
   vec3 dh = pSil - u_heartPos;
   sBr += u_heartI * 0.9 * exp(-dot(dh, dh) / 0.018) * (type > 1.5 ? 1.0 : 0.3);
 
   vec3 p; float br, sz; vec3 col;
-  float flower = 0.0, bloom = 0.0, glow = 0.0, stretch = 0.0;
+  float flower = 0.0, bloom = 0.0, glow = 0.0, stretch = 0.0, spike = sSpike, wing = 0.0;
 
   // STAR_FIELD -> HUMAN_SILHOUETTE
   if (anchored) { p = pSil; br = sBr; sz = sSz; col = sCol; }
@@ -1110,9 +1170,12 @@ void main() {
       vec3 swirl = vec3(sin(a_seed.y * 41.0), cos(a_seed.z * 37.0), sin(a_seed.w * 29.0)) * 0.3 * bump01(e);
       p = mix(p, flyPos(T), e) + swirl;
       float blink = 0.14 + 1.5 * pow(0.5 + 0.5 * sin(T * (1.3 + 1.9 * a_seed.z) + a_seed.y * 40.0), 8.0);
-      br = mix(br, 0.7 * blink, e);
-      sz = mix(sz, 0.014 + 0.006 * a_seed.x, e);
-      col = mix(col, mix(vec3(1.0, 0.78, 0.4), vec3(0.86, 1.0, 0.52), a_seed.z * 0.8), e);
+      float sprite = step(0.965, a_seed.z);
+      br = mix(br, sprite > 0.5 ? 0.8 + 0.5 * blink : 0.14 * blink, e);
+      spike *= 1.0 - e;
+      wing = e * sprite;
+      sz = mix(sz, sprite > 0.5 ? 0.036 + 0.014 * a_seed.x : 0.010 + 0.004 * a_seed.x, e);
+      col = mix(col, mix(vec3(1.0, 0.66, 0.3), vec3(1.0, 0.86, 0.5), a_seed.y), e);
     }
   }
 
@@ -1128,8 +1191,9 @@ void main() {
       if (a_seed.z > 0.62) bloom *= 0.72 + 0.28 * cos(T * 0.45 + a_seed.x * 30.0);
       flower = isF * smoothstep(0.42, 0.66, w3);
       float ff = win(w3, 0.3, 0.9);
-      col = mix(col, isF > 0.5 ? flowerColor(a_flower.z) : vec3(1.0, 0.86, 0.58), ff);
-      br = mix(br, isF > 0.5 ? 0.55 : 0.3 + 0.25 * a_seed.x, ff);
+      wing *= 1.0 - ff;
+      col = mix(col, isF > 0.5 ? flowerColor(a_flower.z) : vec3(1.0, 0.82, 0.5), ff);
+      br = mix(br, isF > 0.5 ? 0.5 : 0.2 + 0.2 * a_seed.x, ff);
       sz = mix(sz, isF > 0.5 ? a_flower.w : 0.008, ff);
     }
   }
@@ -1143,9 +1207,9 @@ void main() {
       float e = ease(w4);
       vec3 swirl = vec3(sin(a_seed.x * 30.0 + T * 0.5), cos(a_seed.y * 30.0 + T * 0.4), sin(a_seed.w * 20.0)) * 0.3 * bump01(e) * (1.0 - 0.5 * e);
       p = mix(p, namePos(T), e) + swirl;
-      float nsz = a_flower.x > 1.5 ? 0.022 + 0.01 * a_seed.x : (a_flower.x > 0.5 ? 0.030 + 0.01 * a_seed.x : 0.0075);
+      float nsz = a_flower.x > 1.5 ? 0.03 + 0.03 * a_seed.x : (a_flower.x > 0.5 ? 0.029 + 0.01 * a_seed.x : 0.0075);
       sz = mix(sz, nsz, e);
-      br = mix(br, a_flower.x > 1.5 ? 0.32 : (isF > 0.5 ? 1.0 : 0.55), e);
+      br = mix(br, a_flower.x > 1.5 ? 0.45 : (isF > 0.5 ? 0.9 : 0.75), e);
     }
   }
 
@@ -1166,7 +1230,7 @@ void main() {
   // -> HUMAN_SILHOUETTE, remembered
   if (u_gSil2 > 0.0) {
     float e = ease(stag(u_gSil2, a_seed.y, 0.8));
-    p = mix(p, pSil, e); br = mix(br, sBr, e); sz = mix(sz, sSz, e); col = mix(col, sCol, e);
+    p = mix(p, pSil, e); br = mix(br, sBr, e); sz = mix(sz, sSz, e); col = mix(col, sCol, e); spike = mix(spike, sSpike, e);
   }
 
   // -> FINAL_STAR : everything leaves, from the edges inward to her heart
@@ -1184,6 +1248,10 @@ void main() {
   float core = rpx * coreFrac;
   float inten = br;
   if (core < u_minCore) { inten *= (core / u_minCore) * (core / u_minCore); rpx = u_minCore / coreFrac; }
+  float coc = clamp(abs(clip.w - u_focus) * u_dof, 0.0, 1.4);
+  float grow = 1.0 + coc * 1.7 * (1.0 - 0.8 * wing);
+  rpx *= grow * (1.0 + 1.8 * spike);
+  inten /= pow(grow, 1.5);
   vec2 off = a_corner * rpx;
   off.y *= 1.0 + 1.8 * stretch;
   off.x *= 1.0 - 0.35 * stretch;
@@ -1191,6 +1259,8 @@ void main() {
   gl_Position = clip;
   v_col = col * inten * (u_trail > 0.0 ? u_trail : 1.0);
   v_flower = flower; v_bloom = bloom; v_glow = glow;
+  v_spike = spike; v_wing = wing; v_soft = clamp(coc, 0.0, 1.0);
+  v_flap = 0.3 + 0.7 * abs(sin(T * (7.0 + 5.0 * a_seed.x) + a_seed.y * 30.0));
   float spin = a_seed.w > 0.55 ? (a_seed.w - 0.55) * 1.2 * (a_seed.z > 0.5 ? 1.0 : -1.0) : 0.0;
   v_rot = a_seed.x * 6.2831 + T * spin;
 }`;
@@ -1199,29 +1269,45 @@ const FIGURE_FS = `#version 300 es
 precision highp float;
 in vec2 v_uv;
 in vec3 v_col;
-in float v_flower, v_bloom, v_glow, v_petals, v_rot;
+in float v_flower, v_bloom, v_glow, v_petals, v_rot, v_spike, v_wing, v_flap, v_soft;
 out vec4 o;
 void main() {
   float r2 = dot(v_uv, v_uv);
   if (r2 > 1.0) discard;
-  vec3 c = v_col * (exp(-r2 * 25.0) + 0.14 * exp(-r2 * 6.0));
+  vec2 cq = v_uv * (1.0 + 1.8 * v_spike);
+  float c2 = dot(cq, cq);
+  float sharp = mix(25.0, 3.0, v_soft);
+  float starShape = exp(-c2 * sharp) + 0.14 * exp(-c2 * 6.0);
+  vec2 a2 = abs(v_uv);
+  starShape += v_spike * 0.6 * (exp(-a2.y * 55.0) * exp(-a2.x * 3.2) + exp(-a2.x * 55.0) * exp(-a2.y * 3.2)) * (1.0 - r2);
+  vec3 c = v_col * starShape;
+  float cs = cos(v_rot), sn = sin(v_rot);
+  vec2 q = mat2(cs, sn, -sn, cs) * v_uv;
+  if (v_wing > 0.002) {
+    float f = v_flap;
+    vec2 w1 = vec2((abs(q.x) - 0.36 * f) / (0.26 * f + 0.06), (q.y - 0.14) / 0.3);
+    vec2 w2 = vec2((abs(q.x) - 0.26 * f) / (0.2 * f + 0.05), (q.y + 0.2) / 0.2);
+    float wings = exp(-dot(w1, w1) * 2.0) * 0.55 + exp(-dot(w2, w2) * 2.0) * 0.4;
+    float body = exp(-(q.x * q.x * 380.0 + q.y * q.y * 30.0));
+    vec3 fw = v_col * (wings * 0.7 + body * 1.2 + exp(-r2 * 40.0) * 0.8);
+    c = mix(c, fw, v_wing);
+  }
   if (v_flower > 0.002) {
-    float cs = cos(v_rot), sn = sin(v_rot);
-    vec2 q = mat2(cs, sn, -sn, cs) * v_uv;
     float r = length(q);
     float a = atan(q.y, q.x);
     float open = v_bloom;
     float lobe = abs(cos((a + (1.0 - open) * 1.4 * r) * v_petals * 0.5));
-    float len = mix(0.1, 0.92, open);
-    float rim = len * (0.3 + 0.7 * pow(lobe, mix(7.0, 0.8, open)));
-    float inside = 1.0 - smoothstep(rim * 0.72, rim, r);
-    float edge = inside * smoothstep(rim * 0.3, rim * 0.92, r);
-    float vein = inside * pow(lobe, 24.0) * 0.12 * (1.0 - r / max(rim, 0.01));
-    float petals = (inside * 0.34 + edge * 0.32 + vein) * open;
-    float centre = exp(-r * r * 90.0);
-    float halo = exp(-r * r * mix(40.0, 5.0, v_glow)) * 0.45 * v_glow;
+    float len = mix(0.1, 0.9, open);
+    float rim = len * (0.12 + 0.88 * pow(lobe, mix(4.0, 0.42, open)));
+    float inside = 1.0 - smoothstep(rim * mix(0.8, 0.3, v_soft), rim, r);
+    float tt = r / max(rim, 1e-3);
+    float petals = inside * (0.16 + 0.6 * tt * tt) * open;
+    float vein = inside * pow(lobe, 30.0) * 0.1 * open;
+    float centre = exp(-r * r * 140.0);
+    float stamens = exp(-pow((r - 0.13 * open) / 0.035, 2.0)) * 0.45 * open;
+    float halo = exp(-r * r * mix(40.0, 4.0, v_glow)) * 0.4 * v_glow;
     float lum = dot(v_col, vec3(0.3333));
-    vec3 f = v_col * (petals + halo * 0.7) + vec3(1.0, 0.88, 0.62) * lum * centre * 1.1 + v_col * centre * 0.3;
+    vec3 f = v_col * (petals + vein + halo * 0.6) + vec3(1.0, 0.82, 0.5) * lum * (centre * 1.5 + stamens);
     c = mix(c, f, v_flower);
   }
   o = vec4(c, 1.0);
@@ -1255,7 +1341,9 @@ void main() {
   float halo = exp(-r / (rc * 2.2)) * 0.42;
   float wide = exp(-r / (rc * 9.0)) * 0.07;
   vec3 warmCore = vec3(1.0, 0.95, 0.86), warmHalo = vec3(1.0, 0.74, 0.45);
-  vec3 col = (warmCore * core * 1.6 + warmHalo * (halo + wide)) * u_int;
+  vec2 ap = abs(v_px);
+  float spikes = (exp(-ap.y / (rc * 0.22)) * exp(-ap.x / (rc * 6.5)) + exp(-ap.x / (rc * 0.22)) * exp(-ap.y / (rc * 6.5))) * 0.6;
+  vec3 col = (warmCore * (core * 1.6 + spikes) + warmHalo * (halo + wide)) * u_int;
   if (u_ringI > 0.0) {
     float rw = rc * 1.6 + u_ringR * 0.08;
     col += warmHalo * exp(-pow((r - u_ringR) / rw, 2.0)) * u_ringI;
@@ -1315,9 +1403,11 @@ uniform float u_fade, u_time;
 out vec4 o;
 void main() {
   vec3 c = texture(u_scene, v_uv).rgb;
-  c += texture(u_bloomA, v_uv).rgb * 0.6 + texture(u_bloomB, v_uv).rgb * 0.5;
+  c += texture(u_bloomA, v_uv).rgb * 0.85 + texture(u_bloomB, v_uv).rgb * 0.7;
   c += texture(u_nebula, v_uv).rgb;
-  c = vec3(1.0) - exp(-c * 1.15);
+  c = vec3(1.0) - exp(-c * 1.3);
+  float l = dot(c, vec3(0.299, 0.587, 0.114));
+  c = max(mix(vec3(l), c, 1.18), 0.0);
   vec2 px = v_uv * u_res, ctr = u_res * 0.5;
   float halfSq = min(u_res.x, u_res.y) * 0.5;
   vec2 d = abs(px - ctr) / halfSq;
@@ -1626,9 +1716,10 @@ function computeFrame(t, dt) {
 
   const sky = {
     rot: rotationAxis(SKY_AXIS, t * 0.0011),
-    bright: (1 - track(t, CUE.SKY_OUT)) * (1 - 0.3 * windowed(t, CUE.SKY_DIM)),
+    bright: (1 - 0.8 * track(t, CUE.SKY_OUT)) * (1 - 0.3 * windowed(t, CUE.SKY_DIM)),
     dust: track(t, CUE.DUST_IN) * (1 - track(t, CUE.SKY_OUT)),
-    nebula: track(t, CUE.NEBULA_IN) * (1 - track(t, CUE.NEBULA_OUT)),
+    nebula: track(t, CUE.NEBULA_IN) * (1 - 0.9 * track(t, CUE.NEBULA_OUT)),
+    dof: 0.4 * windowed(t, CUE.DOF),
     trails: windowed(t, CUE.TRAILS),
   };
 
@@ -1636,7 +1727,8 @@ function computeFrame(t, dt) {
   const c = [0, 1, 2, 3].map(r => vp[r] * fig.heartPos[0] + vp[4 + r] * fig.heartPos[1] + vp[8 + r] * fig.heartPos[2] + vp[12 + r]);
   const starScreen = [(c[0] / c[3] * 0.5 + 0.5) * view.cssW, (1 - (c[1] / c[3] * 0.5 + 0.5)) * view.cssH];
 
-  return { t, eye, basis, proj, vp, fig, final, sky, camDist, starScreen };
+  const focus = v3.len(v3.sub(cam.target, eye));
+  return { t, eye, basis, proj, vp, fig, final, sky, camDist, starScreen, focus };
 }
 
 function drawFullscreen() {
@@ -1718,6 +1810,8 @@ function render(F) {
     gl.uniform3fv(u.u_figPos, FIG_POS);
     gl.uniform1f(u.u_figScale, FIG_SCALE);
     gl.uniform3fv(u.u_heartLocal, HEART_LOCAL);
+    gl.uniform1f(u.u_dof, F.sky.dof);
+    gl.uniform1f(u.u_focus, F.focus);
     gl.bindVertexArray(R.figVAO);
     const count = Math.floor(MAX_FIG * tier.fig);
     if (F.sky.trails > 0.01) {
